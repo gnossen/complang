@@ -1,0 +1,11 @@
+body    : expr body
+        | EOF
+
+expr    : 0
+        | 0 OR expr
+        | expr2 OR expr
+        | expr2
+
+expr2   : letter
+        | letter *
+        | OPAREN expr CPAREN 
