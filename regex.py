@@ -41,17 +41,25 @@ class Regex:
                 expr = self._generate_regex(depth + 1)
                 res += [ RegexASTNode(RegexASTNode.REP_EXPR, self.letter_class, left=expr) ]
 
-            def treeify(sublist):
-                if len(sublist) == 1:
-                    return sublist[0]
-                else:
-                    return RegexASTNode(RegexASTNode.CAT_EXPR,
-                                        self.letter_class,
-                                        left=sublist[0],
-                                        right=treeify(sublist[1:]))
+        def simplify(sublist):
+            for elem in sublist:
+                if elem.type == RegexASTNode.REP_EXPR and \
+                    elem.left.type == RegexASTNode.REP_EXPR:
 
+                    elem.left = elem.left.left
+
+            return sublist
+
+        def treeify(sublist):
+            if len(sublist) == 1:
+                return sublist[0]
+            else:
+                return RegexASTNode(RegexASTNode.CAT_EXPR,
+                                    self.letter_class,
+                                    left=sublist[0],
+                                    right=treeify(sublist[1:]))
          
-        return treeify(res)
+        return treeify(simplify(res))
 
 
     def generate(self):
@@ -192,7 +200,10 @@ class RegexASTNode:
         elif self.type == RegexASTNode.OR_EXPR:
             return "(" + str(self.left) + "|" + str(self.right) + ")"
         elif self.type == RegexASTNode.REP_EXPR:
-            return str(self.left) + "*"
+            if self.left.type == RegexASTNode.CAT_EXPR:
+                return "(" + str(self.left) + ")*"
+            else:
+                return str(self.left) + "*"
         elif self.type == RegexASTNode.CAT_EXPR:
             return str(self.left) + str(self.right)
         else:
@@ -216,7 +227,14 @@ class RegexASTNode:
                     [ self.embed_by_index(RegexASTNode.OR_VECINDEX) ] + \
                     self.right.embed()
         elif self.type == RegexASTNode.REP_EXPR:
-            return self.left.embed() + [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
+            if self.left.type == RegexASTNode.CAT_EXPR:
+                return self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) + \
+                        self.left.embed() + \
+                        self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) + \
+                        [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
+            else:
+                return self.left.embed() + [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
+            
         elif self.type == RegexASTNode.CAT_EXPR:
             return self.left.embed() + self.right.embed()
         else:
