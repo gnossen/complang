@@ -21,11 +21,11 @@ class Regex:
 
     def _generate(self, ast):
         if ast is None:
-            return ""
+            return []
         elif ast.type == RegexASTNode.EPSILON:
-            return ""
+            return []
         elif ast.type == RegexASTNode.LETTER:
-            return str(ast.value)
+            return [ ast.value ]
         elif ast.type == RegexASTNode.OR_EXPR:
             choice = random.randrange(2)
             if choice == 0:
@@ -37,7 +37,7 @@ class Regex:
             if num_reps < 0:
                 num_reps = 0
 
-            res = ""
+            res = []
             for i in range(num_reps):
                 res += self._generate(ast.left)
 

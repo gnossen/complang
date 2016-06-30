@@ -6,7 +6,9 @@ regex.parse("AB*(A|B)")
 print(regex.ast)
 
 for i in range(10):
-    print(regex.generate())
+    str = regex.generate()
+    print(str)
+    print([letter.embed() for letter in str])
 
 print("")
 print(regex.embed())

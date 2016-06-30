@@ -30,3 +30,9 @@ class Letter:
 
     def id(self):
         return self._id
+
+    def embed(self):
+        head = [0.0] * self._id
+        middle = [1.0]
+        tail = [0.0] * (self.size() - self._id - 1)
+        return head + middle + tail
