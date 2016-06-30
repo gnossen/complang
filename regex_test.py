@@ -2,6 +2,11 @@ from regex import *
 from lang1 import *
 
 regex = Regex(L1Letter)
-print(L1Letter.is_letter("("))
 regex.parse("AB*(A|B)")
 print(regex.ast)
+
+for i in range(10):
+    print(regex.generate())
+
+print("")
+print(regex.embed())

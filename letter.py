@@ -27,3 +27,6 @@ class Letter:
     @abc.abstractmethod
     def is_letter(str):
         pass
+
+    def id(self):
+        return self._id

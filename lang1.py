@@ -5,7 +5,7 @@ class L1Letter(Letter):
 
     @staticmethod
     def size():
-        return L1Letter.aphabet_size
+        return L1Letter.alphabet_size
 
     def __repr__(self):
         A = ord('A')
