@@ -11,7 +11,7 @@ expr2: expr3
      | expr3 expr2
 
 # Kleene star (left associative)
-expr3: expr4 STAR
+expr3: expr3 STAR
      | expr4
 
 # primitives

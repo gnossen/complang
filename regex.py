@@ -46,7 +46,7 @@ class Regex:
             for i, _ in enumerate(sublist):
                 if sublist[i].type == RegexASTNode.REP_EXPR and \
                     sublist[i].left.type == RegexASTNode.REP_EXPR:
-
+                    
                     sublist[i].left = sublist[i].left.left
 
             return sublist
@@ -240,7 +240,7 @@ class RegexASTNode:
         elif self.type == RegexASTNode.OR_EXPR:
             return str(self.left) + "|" + str(self.right)
         elif self.type == RegexASTNode.REP_EXPR:
-            if self.left.type == RegexASTNode.CAT_EXPR:
+            if self.left.type == RegexASTNode.CAT_EXPR or self.left.type == RegexASTNode.OR_EXPR:
                 return "(" + str(self.left) + ")*"
             else:
                 return str(self.left) + "*"

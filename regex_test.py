@@ -2,7 +2,9 @@ from regex import *
 from lang1 import *
 
 regex = Regex(L1Letter)
-regex.parse("AA((C|(B(C|A))*)((C|C**B*BC)*A)*)*CC")
+sample = "(BA|A*)*"
+print(sample)
+regex.parse(sample)
 # regex.parse("C|C*B")
 print(regex.ast)
 
