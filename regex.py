@@ -16,6 +16,44 @@ class Regex:
     def embed(self):
         return self.ast.embed()
 
+    def generate_regex(self):
+        self.ast = self._generate_regex(1)
+
+    def _generate_regex(self, depth):
+        # calculate mean length for this particular depth
+        mean_layer_length = 6.0 / (depth ** 2)
+        layer_length = math.floor(random.gauss(mean_layer_length, 2))
+        layer_length = 1 if layer_length < 1 else layer_length
+
+        res = []
+        for i in range(layer_length):
+            c = random.random()
+
+            # 80% chance it's a letter
+            if c < 0.75:
+                letter_index = random.randrange(self.letter_class.size())
+                res += [ RegexASTNode(RegexASTNode.LETTER, self.letter_class, value=self.letter_class(letter_index)) ]
+            elif c < 0.85:
+                left = self._generate_regex(depth + 1)
+                right = self._generate_regex(depth + 1)
+                res += [ RegexASTNode(RegexASTNode.OR_EXPR, self.letter_class, left=left, right=right) ]
+            else:
+                expr = self._generate_regex(depth + 1)
+                res += [ RegexASTNode(RegexASTNode.REP_EXPR, self.letter_class, left=expr) ]
+
+            def treeify(sublist):
+                if len(sublist) == 1:
+                    return sublist[0]
+                else:
+                    return RegexASTNode(RegexASTNode.CAT_EXPR,
+                                        self.letter_class,
+                                        left=sublist[0],
+                                        right=treeify(sublist[1:]))
+
+         
+        return treeify(res)
+
+
     def generate(self):
         return self._generate(self.ast)
 
