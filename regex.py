@@ -43,11 +43,11 @@ class Regex:
                 res += [ RegexASTNode(RegexASTNode.REP_EXPR, self.letter_class, left=expr) ]
 
         def simplify(sublist):
-            for elem in sublist:
-                if elem.type == RegexASTNode.REP_EXPR and \
-                    elem.left.type == RegexASTNode.REP_EXPR:
+            for i, _ in enumerate(sublist):
+                if sublist[i].type == RegexASTNode.REP_EXPR and \
+                    sublist[i].left.type == RegexASTNode.REP_EXPR:
 
-                    elem.left = elem.left.left
+                    sublist[i].left = sublist[i].left.left
 
             return sublist
 
@@ -148,59 +148,67 @@ class Regex:
     __str__ = __repr__
 
     def parse(self, str):
-        print("Parsing '%s'" % str)
         self.in_stream = str
         self.in_stream_index = 0
         self.ast = self.parse_body()
 
     def parse_body(self):
-        left = self.parse_expr()
-        if self.check_expr():
-            right = self.parse_expr()
-            return RegexASTNode(RegexASTNode.CAT_EXPR, self.letter_class, left=left, right=right)
-        else:
-            return left
-            
+        if self.check(None):
+            return None
+
+        return self.parse_expr()
+
     def check_expr(self):
-        return self.check("0") or self.check_expr2()
+        return self.check_expr2()
 
     def parse_expr(self):
-        left_expr = None
-        if self.check("0"):
-            self.match("0")
-            left_expr = RegexASTNode(RegexASTNode.EPSILON, self.letter_class)
-        else:
-            left_expr = self.parse_expr2()
+        left = self.parse_expr2()
 
         if self.check("|"):
             self.match("|")
-            right_expr = self.parse_body()
-            return RegexASTNode(RegexASTNode.OR_EXPR, self.letter_class, left=left_expr, right=right_expr)
-        else:
-            return left_expr
+            right = self.parse_expr()
+            return RegexASTNode(RegexASTNode.OR_EXPR, self.letter_class, left=left, right=right)
+
+        return left
 
     def check_expr2(self):
-        return self.letter_class.is_letter(self.head()) or \
-                self.check("(")
+        return self.check_expr3()
 
     def parse_expr2(self):
-        if self.check("("):
-            self.match("(")
-            expr = self.parse_body()
-            self.match(")")
-            return expr
+        left = self.parse_expr3()
+        if self.check_expr2():
+            right = self.parse_expr2()
+            return RegexASTNode(RegexASTNode.CAT_EXPR, self.letter_class, left=left, right=right)
+        
+        return left
+
+    def check_expr3(self):
+        return self.check_expr4()
+
+    def parse_expr3(self):
+        subtree = self.parse_expr4()
+        
+        while self.check("*"):
+            self.match("*")
+            subtree = RegexASTNode(RegexASTNode.REP_EXPR, self.letter_class, left=subtree)
+
+        return subtree
+
+    def check_expr4(self):
+        return self.check("0") or self.check("(") or self.letter_class.is_letter(self.head())
+
+    def parse_expr4(self):
+        if self.check("0"):
+            return RegexASTNode(RegexASTNode.EPSILON, self.letter_class)
         elif self.letter_class.is_letter(self.head()):
             letter = self.letter_class.from_str(self.head())
             self.advance()
-            letter_node = RegexASTNode(RegexASTNode.LETTER, self.letter_class, value=letter)
-
-            if self.check("*"):
-                self.match("*")
-                return RegexASTNode(RegexASTNode.REP_EXPR, self.letter_class, left=letter_node)
-            else:
-                return letter_node
+            return RegexASTNode(RegexASTNode.LETTER, self.letter_class, value=letter)
         else:
-            raise Exception("Could not parse '%s' as part of expr2. (%d)" % (self.head(), self.in_stream_index))
+            self.match("(")
+            expr = self.parse_expr()
+            self.match(")")
+            return expr
        
 class RegexASTNode:
     EPSILON     = 0

@@ -2,15 +2,15 @@
 body: expr
     | EPSILON
 
-# concatenation
-expr: expr2
-    | expr2 expr
-
 # or expression
-expr2: expr3 OR expr
-     | expr3
+expr: expr2 OR expr
+    | expr2
 
-# Kleene star
+# concatenation
+expr2: expr3
+     | expr3 expr2
+
+# Kleene star (left associative)
 expr3: expr4 STAR
      | expr4
 
