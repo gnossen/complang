@@ -1,6 +1,7 @@
 from letter import *
 import random
 import math
+import numpy
 
 # note that at the moment, this parser only works for articulatory spaces in which
 # there is a one-to-one correspondence between letters and characters
@@ -99,7 +100,7 @@ class Regex:
     def match(self, str):
         if not self.check(str):
             head_letter = "EOF" if len(self.in_stream) == 0 else self.in_stream[0]
-            raise Exception("Expected %s but encountered %s!" % (str, head_letter))
+            raise Exception("Expected %s but encountered %s! (%d)" % (str, head_letter, self.in_stream_index))
 
         self.advance()
         return True
@@ -111,23 +112,54 @@ class Regex:
         return self.head() == str
 
     def advance(self):
+        self.in_stream_index += 1
         self.in_stream = self.in_stream[1:]
 
+    def from_embedding(self, embed_stream):
+        def embedding_to_index(embedding):
+            return numpy.argmax(embedding)
+
+        def index_to_str(index):
+            if index == RegexASTNode.EPSILON_VECINDEX:
+                return "0"
+            elif index == RegexASTNode.OR_VECINDEX:
+                return "|"
+            elif index == RegexASTNode.LPAREN_VECINDEX:
+                return "("
+            elif index == RegexASTNode.RPAREN_VECINDEX:
+                return ")"
+            elif index == RegexASTNode.STAR_VECINDEX:
+                return "*"
+            else:
+                return str(self.letter_class(index - RegexASTNode.NUM_RESERVED_SYMBOLS))
+
+        res = ""
+        for embedding in embed_stream:
+            res += index_to_str(embedding_to_index(embedding))
+
+        self.parse(res)
+
+    def __repr__(self):
+        if self.ast is None:
+            return "<Uninitialized Regex>"
+        else:
+            return str(self.ast)
+
+    __str__ = __repr__
+
     def parse(self, str):
+        print("Parsing '%s'" % str)
         self.in_stream = str
+        self.in_stream_index = 0
         self.ast = self.parse_body()
 
     def parse_body(self):
-        if self.check(None):
-            self.match(None)
-            return None
+        left = self.parse_expr()
+        if self.check_expr():
+            right = self.parse_expr()
+            return RegexASTNode(RegexASTNode.CAT_EXPR, self.letter_class, left=left, right=right)
         else:
-            left_expr = self.parse_expr()
-            if self.check(None):
-                return left_expr
-
-            right_expr = self.parse_body()
-            return RegexASTNode(RegexASTNode.CAT_EXPR, self.letter_class, left=left_expr, right=right_expr)
+            return left
             
     def check_expr(self):
         return self.check("0") or self.check_expr2()
@@ -142,7 +174,7 @@ class Regex:
 
         if self.check("|"):
             self.match("|")
-            right_expr = self.parse_expr()
+            right_expr = self.parse_body()
             return RegexASTNode(RegexASTNode.OR_EXPR, self.letter_class, left=left_expr, right=right_expr)
         else:
             return left_expr
@@ -154,7 +186,7 @@ class Regex:
     def parse_expr2(self):
         if self.check("("):
             self.match("(")
-            expr = self.parse_expr()
+            expr = self.parse_body()
             self.match(")")
             return expr
         elif self.letter_class.is_letter(self.head()):
@@ -168,7 +200,7 @@ class Regex:
             else:
                 return letter_node
         else:
-            raise Exception("Could not parse %s as part of expr2." % self.head())
+            raise Exception("Could not parse '%s' as part of expr2. (%d)" % (self.head(), self.in_stream_index))
        
 class RegexASTNode:
     EPSILON     = 0
@@ -223,31 +255,22 @@ class RegexASTNode:
 
         return head + middle + tail
 
-    def embed(self):
-        if self.type == RegexASTNode.EPSILON:
-            return [ self.embed_by_index(RegexASTNode.EPSILON_VECINDEX) ]
-        elif self.type == RegexASTNode.LETTER:
-            return [ self.embed_by_index(self.value.id() + RegexASTNode.NUM_RESERVED_SYMBOLS) ]
-        elif self.type == RegexASTNode.OR_EXPR:
-            return [ self.embed_by_index(RegexASTNode.OR_VECINDEX) ]
-        elif self.type == RegexASTNode.REP_EXPR:
-            if self.left.type == RegexASTNode.CAT_EXPR:
-                return [ self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) ] + \
-                        self.left.embed() + \
-                        [ self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) ] + \
-                        [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
-            else:
-                return self.left.embed() + [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
-            
-        elif self.type == RegexASTNode.CAT_EXPR:
-            def parenthesize(subtree):
-                if subtree.type == RegexASTNode.OR_EXPR:
-                    return [ self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) ] + \
-                            subtree.embed() + \
-                            [ self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) ]
-                else:
-                    return subtree.embed()
-
-            return parenthesize(self.left) + parenthesize(self.right)
+    def embed_single(self, char):
+        if char == "0":
+            return self.embed_by_index(RegexASTNode.EPSILON_VECINDEX)
+        elif char == "|":
+            return self.embed_by_index(RegexASTNode.OR_VECINDEX)
+        elif char == "(":
+            return self.embed_by_index(RegexASTNode.LPAREN_VECINDEX)
+        elif char == ")":
+            return self.embed_by_index(RegexASTNode.RPAREN_VECINDEX)
+        elif char == "*":
+            return self.embed_by_index(RegexASTNode.STAR_VECINDEX)
         else:
-            raise Exception("Cannot embed AST node of type '%s'" % str(self.type))
+            return self.embed_by_index(self.letter_class.from_str(char).id() + RegexASTNode.NUM_RESERVED_SYMBOLS)
+
+    def embed_from_str(self, str):
+        return [ self.embed_single(char) for char in str]
+
+    def embed(self):
+        return self.embed_from_str(str(self))

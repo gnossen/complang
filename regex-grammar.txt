@@ -1,11 +1,21 @@
-body    : expr body
-        | EOF
+# allows for an empty expression
+body: expr
+    | EPSILON
 
-expr    : 0
-        | 0 OR expr
-        | expr2 OR expr
-        | expr2
+# concatenation
+expr: expr2
+    | expr2 expr
 
-expr2   : letter
-        | letter *
-        | OPAREN expr CPAREN 
+# or expression
+expr2: expr3 OR expr
+     | expr3
+
+# Kleene star
+expr3: expr4 STAR
+     | expr4
+
+# primitives
+expr4: 0
+     | letter
+     | OPAREN expr CPAREN
+     
