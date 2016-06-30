@@ -198,14 +198,20 @@ class RegexASTNode:
         elif self.type == RegexASTNode.LETTER:
             return str(self.value)
         elif self.type == RegexASTNode.OR_EXPR:
-            return "(" + str(self.left) + "|" + str(self.right) + ")"
+            return str(self.left) + "|" + str(self.right)
         elif self.type == RegexASTNode.REP_EXPR:
             if self.left.type == RegexASTNode.CAT_EXPR:
                 return "(" + str(self.left) + ")*"
             else:
                 return str(self.left) + "*"
         elif self.type == RegexASTNode.CAT_EXPR:
-            return str(self.left) + str(self.right)
+            def parenthesize(subtree):
+                if subtree.type == RegexASTNode.OR_EXPR:
+                    return "(" + str(subtree) + ")"
+                else:
+                    return str(subtree)
+
+            return parenthesize(self.left) + parenthesize(self.right)
         else:
             raise Exception("Cannot print AST node of type '%d'." % self.type)
 
@@ -223,19 +229,25 @@ class RegexASTNode:
         elif self.type == RegexASTNode.LETTER:
             return [ self.embed_by_index(self.value.id() + RegexASTNode.NUM_RESERVED_SYMBOLS) ]
         elif self.type == RegexASTNode.OR_EXPR:
-            return self.left.embed() + \
-                    [ self.embed_by_index(RegexASTNode.OR_VECINDEX) ] + \
-                    self.right.embed()
+            return [ self.embed_by_index(RegexASTNode.OR_VECINDEX) ]
         elif self.type == RegexASTNode.REP_EXPR:
             if self.left.type == RegexASTNode.CAT_EXPR:
-                return self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) + \
+                return [ self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) ] + \
                         self.left.embed() + \
-                        self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) + \
+                        [ self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) ] + \
                         [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
             else:
                 return self.left.embed() + [ self.embed_by_index(RegexASTNode.STAR_VECINDEX) ]
             
         elif self.type == RegexASTNode.CAT_EXPR:
-            return self.left.embed() + self.right.embed()
+            def parenthesize(subtree):
+                if subtree.type == RegexASTNode.OR_EXPR:
+                    return [ self.embed_by_index(RegexASTNode.LPAREN_VECINDEX) ] + \
+                            subtree.embed() + \
+                            [ self.embed_by_index(RegexASTNode.RPAREN_VECINDEX) ]
+                else:
+                    return subtree.embed()
+
+            return parenthesize(self.left) + parenthesize(self.right)
         else:
             raise Exception("Cannot embed AST node of type '%s'" % str(self.type))
