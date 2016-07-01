@@ -8,10 +8,6 @@ class FSM:
         self.states = []
         self.state_count = 1
 
-    def from_regex(self, ast):
-        self.initial_state = self._from_regex(ast)
-        self.determinify()
-
     def clear_visited(self):
         for state in self.states:
             state.clear_visited()
@@ -33,7 +29,13 @@ class FSM:
 
                 for transition_set, new_state in state.edges:
                     new_node = _draw(new_state) 
-                    letter_str_list = [str(self.letter_class(letter_id)) for letter_id in list(transition_set)]
+                    letter_str_list = []
+                    for letter_id in list(transition_set):
+                        if letter_id == -1:
+                            letter_str_list += ["0"]
+                        else:
+                            letter_str_list += [str(self.letter_class(letter_id))]
+
                     edge_label = '"' +  ", ".join(letter_str_list) + '"'
                     graph_edge = pydot.Edge(node, new_node) 
                     graph_edge.set_label(edge_label)
@@ -47,69 +49,72 @@ class FSM:
         graph.write_png(filename)
         self.clear_visited()
 
-    def _from_regex(self, ast, next_state=None):
+    def add_state(self, state):
+        state._id = self.state_count
+        self.state_count += 1
+        self.states += [state]
+
+    def reverse_ids(self):
+        def _reverse_ids(state):
+            if not state.visited:
+                state._id = self.state_count - state._id
+                state.visit()
+                for _, next_state in state.edges:
+                    _reverse_ids(next_state)
+
+        _reverse_ids(self.initial_state)
+        self.clear_visited()
+
+    def from_regex(self, ast):
+        self.initial_transitions = self._from_regex(ast)
+        self.initial_state = FSMState([self.initial_transitions])
+        self.add_state(self.initial_state)
+        self.reverse_ids()
+        self.determinify()
+
+    def _from_regex(self, ast, next_transition=None):
         if ast.type == RegexASTNode.CAT_EXPR:
-            state_B = self._from_regex(ast.right, next_state=None)
-            state_A = self._from_regex(ast.left, next_state=state_B)
-            return state_A
+            transition_B = self._from_regex(ast.right, next_transition=next_transition)
+            mid_state = FSMState([transition_B])
+            self.add_state(mid_state)
+            transition_A = self._from_regex(ast.left, next_transition=(-1, mid_state))
+            return transition_A
         elif ast.type == RegexASTNode.LETTER:
-            state_B = next_state
-            if next_state is None:
-                state_B = FSMState(self.state_count, [], terminal=True)
-                self.states += [state_B]
-                self.state_count += 1
+            state_B = None
+            if next_transition is None:
+                state_B = FSMState([], terminal=True)
+                self.add_state(state_B)
+            else:
+                _, state_B = next_transition
 
-            state_A = FSMState(self.state_count, [(ast.value.id(), state_B)])
-            self.states += [state_A]
-            self.state_count += 1
-            return state_A
+            return (ast.value.id(), state_B)
         elif ast.type == RegexASTNode.EPSILON:
-            state_B = next_state
-            if next_state is None:
-                state_B = FSMState(self.state_count, [], terminal=True)
-                self.states += [state_B]
-                self.state_count += 1
+            state_B = None
+            if next_transition is None:
+                state_B = FSMState([], terminal=True)
+                self.add_state(state_B)
+            else:
+                _, state_B = next_transition
 
-            state_A = FSMState(self.state_count, [(-1, state_B)])
-            self.states += [state_A]
-            self.state_count += 1
-            return state_A
+            return (-1, state_B)
         elif ast.type == RegexASTNode.OR_EXPR:
-            transitions_B = self._find_initial_letters(ast.left)
-            state_B = self._from_regex(ast.left, next_state=next_state)
+            if next_transition is None:
+                final_state = FSMState([], terminal=True)
+                self.add_state(final_state)
+                next_transition = (-1, final_state)
 
-            transitions_C = self._find_initial_letters(ast.right)
-            state_C = self._from_regex(ast.right, next_state=next_state)
-
-            transitions = [(transitions_B, state_B), (transitions_C, state_C)]
-            state_A = FSMState(self.state_count, transitions)
-            self.states += [state_A]
-            self.state_count += 1
-            return state_A
+            transitions_A = self._from_regex(ast.left, next_transition=next_transition)
+            transitions_B = self._from_regex(ast.right, next_transition=next_transition)
+            or_initial_state = FSMState([transitions_A, transitions_B])
+            self.add_state(or_initial_state)
+            return (-1, or_initial_state)
         elif ast.type == RegexASTNode.REP_EXPR:
-            state_A = FSMState(self.state_count, [])
-            self.states += [state_A]
-            self.state_count += 1
-            state_B = self._from_regex(ast.left, next_state=state_A)
-
-            transitions = [(self._find_initial_letters(ast.left), state_B)]
-            state_A.set_edges(transitions)
-            return state_A
-        else:
-            raise Exception("Unknown AST type.")
-
-    def _find_initial_letters(self, ast):
-        if ast.type == RegexASTNode.CAT_EXPR:
-            return self._find_initial_letters(ast.left)
-        elif ast.type == RegexASTNode.EPSILON:
-            return {-1}
-        elif ast.type == RegexASTNode.LETTER:
-            return {ast.value.id()}
-        elif ast.type == RegexASTNode.OR_EXPR:
-            return self._find_initial_letters(ast.left) | \
-                    self._find_initial_letters(ast.right)
-        elif ast.type == RegexASTNode.REP_EXPR:
-            return self._find_initial_letters(ast.left)
+            terminal = (next_transition is None)
+            loop_state = FSMState([], terminal=terminal)
+            self.add_state(loop_state)
+            loop_init_transition = self._from_regex(ast.left, next_transition=(-1, loop_state))
+            loop_state.set_edges([loop_init_transition, next_transition])
+            return (-1, loop_state)
         else:
             raise Exception("Unknown AST type.")
 
@@ -117,7 +122,7 @@ class FSM:
         pass
 
 class FSMState:
-    def __init__(self, id, edges, terminal=False):
+    def __init__(self, edges, id=None, terminal=False):
         # edges is expected to be of the form
         #    [ ({letter1_id1, letter1_id2}, new_state1), ... , (lettern_id, new_staten)]
         self.edges = []
