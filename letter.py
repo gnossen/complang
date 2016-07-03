@@ -7,7 +7,7 @@ import abc
 #   is a single atomic element of the ariculatory space, but the term "letter" actually
 #   exists
 
-class Letter:
+class Letter(object):
     def __init__(self, _id):
         self._id = _id
 
@@ -40,13 +40,15 @@ class Letter:
             def __iter__(self):
                 return self
 
-            def next(self):
+            def __next__(self):
                 if self.i < letter_class.size():
                     ret_letter = letter_class(self.i)
                     self.i += 1
                     return ret_letter
                 else:
                     raise StopIteration()
+
+            next = __next__
 
         return LetterIterator()
 

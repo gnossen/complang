@@ -1,20 +1,14 @@
-from regex import *
+from regexast import *
 import pydot
 import copy
 
-class FSM:
+class FSM(object):
     def __init__(self, letter_class):
         self.letter_class = letter_class
         self.initial_state = None
         self.states = []
         self.state_count = 1
 
-        self.make_dead_state()
-
-    def make_dead_state(self):
-        self.dead_state = FSMState([])
-        self.dead_state._id = 0
-        self.states += [self.dead_state]
 
     def get_state(self, id):
         for state in self.states:
@@ -31,15 +25,7 @@ class FSM:
         state._id = self.state_count
         self.state_count += 1
         self.states += [state]
-        self.connect_dead_state(state)
 
-    def connect_dead_state(self, state):
-        dead_transitions = set()
-        for letter in self.letter_class.all():
-            if letter.id() not in state.valid_transitions():
-                dead_transitions = dead_transitions | {letter.id()}
-
-        state.add_edges([(dead_transitions, self.dead_state)])
 
     def draw(self, filename, show_dead=False):
         graph = pydot.Dot(graph_type='digraph')
@@ -80,6 +66,15 @@ class FSM:
         self.clear_visited()
 
 class NFSM(FSM):
+    def __init__(self, letter_class):
+        super(NFSM, self).__init__(letter_class)
+        self.make_dead_state()
+
+    def make_dead_state(self):
+        self.dead_state = FSMState([])
+        self.dead_state._id = 0
+        self.states += [self.dead_state]
+
     def reverse_ids(self):
         def _reverse_ids(state):
             if not state.visited:
@@ -91,11 +86,26 @@ class NFSM(FSM):
         _reverse_ids(self.initial_state)
         self.clear_visited()
 
+    def _connect_dead_state(self, state):
+        dead_transitions = set()
+        for letter in self.letter_class.all():
+            if letter.id() not in state.valid_transitions():
+                dead_transitions = dead_transitions | {letter.id()}
+
+        state.add_edges([(dead_transitions, self.dead_state)])
+
+    def connect_dead_state(self):
+        for state in self.states:
+            if state is not self.dead_state:
+                self._connect_dead_state(state)
+
     def from_regex(self, ast):
         self.initial_transitions = self._from_regex(ast)
         self.initial_state = FSMState([self.initial_transitions])
         self.add_state(self.initial_state)
+        self.connect_dead_state()
         self.reverse_ids()
+        self.clear_visited()
 
     def _from_regex(self, ast, next_transition=None):
         if ast.type == RegexASTNode.CAT_EXPR:
@@ -143,7 +153,7 @@ class NFSM(FSM):
         else:
             raise Exception("Unknown AST type.")
 
-class FSMState:
+class FSMState(object):
     def __init__(self, edges, id=None, terminal=False):
         # edges is expected to be of the form
         #    [ ({letter1_id1, letter1_id2}, new_state1), ... , (lettern_id, new_staten)]
@@ -182,7 +192,7 @@ class FSMState:
     def valid_transitions(self):
         letters = set()
         for transition_letters, next_state in self.edges:
-            letters = letters | set(transition_letters)
+            letters = letters | transition_letters
 
         return letters
 
@@ -201,43 +211,48 @@ class FSMState:
         return self._id == other._id
 
 class DFSM(FSM):
+    def from_regex(self, ast):
+        nfsm = NFSM(self.letter_class)
+        nfsm.from_regex(ast)
+        self.from_nfsm(nfsm)
+
     def from_nfsm(self, nfsm):
-        self.state_count = nfsm.state_count
-        self.initial_state = copy.deepcopy(nfsm.initial_state)
-        self.populate_state_list()
-        self._from_nfsm(nfsm, self.initial_state)
+        self.dead_state = FSMSuperState({nfsm.dead_state}, [])
+        self.add_state(self.dead_state)
+        self.initial_state = FSMSuperState({nfsm.initial_state}, [])
+        self.add_state(self.initial_state)
+        self._from_nfsm(self.initial_state)
+        self.clear_visited()
 
-    def populate_state_list(self):
-        def visit_state(state):
-            if not state.visited:
-                self.states += [state]
-                state.visit()
+    def get_by_ref_states(self, ref_states):
+        for state in self.states:
+            if ref_states == state.component_states:
+                return state
+        else:
+            return None
 
-                for letters, new_state in state.edges:
-                    visit_state(new_state)
+    def make_state(self, component_states):
+        ref_state = self.get_by_ref_states(component_states)
+        if ref_state is None:
+            ref_state = FSMSuperState(component_states, [])
+            self.add_state(ref_state)
 
-        visit_state(self.initial_state)
+        return ref_state
 
-    def _from_nfsm(self, nfsm, state):
-        if not state.visited():
+    def _from_nfsm(self, state):
+        if not state.visited:
             state.visit()
-            nfsm_state = nfsm.get_state(state._id)
             paths = []
-            for letter in state.valid_transitions():
-                this_letter_transitions = state.nd_transition(letter)
-                next_state = None
-                if len(this_letter_transitions) > 1:
-                    next_state = FSMSuperState(this_letter_transitions, [])
-                    for other_state in self.states:
-                        if other_state == next_state:
-                            next_state = other_state
-                            break
-                    else:
-                        self.add_state(next_state)
-                else:
-                    next_state = tuple(this_letter_transitions)[0]
 
-                paths += [(letter, next_state)]
+            for letter in self.letter_class.all():
+                this_letter_states = state.nd_transition(letter.id())
+                next_state = self.make_state(this_letter_states)
+
+                paths += [(letter.id(), next_state)]
+
+            state.add_edges(paths)
+            for _, next_state in state.edges:
+                self._from_nfsm(next_state)
 
 
 class FSMSuperState(FSMState):
@@ -245,6 +260,11 @@ class FSMSuperState(FSMState):
     def __init__(self, component_states, edges, id=None, terminal=False):
         super(FSMSuperState, self).__init__(edges, id=id, terminal=terminal)
         self.component_states = component_states
+        self.set_terminal()
+
+    def set_terminal(self):
+        for component_state in self.component_states:
+            self.terminal |= component_state.terminal
 
     def __eq__(self, other):
         if type(other) is FSMState:
@@ -255,5 +275,12 @@ class FSMSuperState(FSMState):
             return False
 
         same = True
-        for component_state in component_states:
+        for component_state in self.component_states:
             same = same and (component_state in other.component_states)
+
+    def nd_transition(self, letter_id):
+        new_states = set()
+        for component_state in self.component_states:
+            new_states = new_states | component_state.nd_transition(letter_id)
+
+        return new_states

@@ -1,4 +1,5 @@
 from regex import *
+from regexast import *
 from lang1 import *
 
 regex = Regex(L1Letter)

@@ -22,3 +22,12 @@ regex3.parse("A(A|B)*B")
 fsm3 = NFSM(L1Letter)
 fsm3.from_regex(regex3.ast)
 fsm3.draw("regextest3.png")
+
+fsm4 = DFSM(L1Letter)
+fsm4.from_nfsm(fsm3)
+fsm4.draw("regextest4.png")
+
+regex4 = Regex(L1Letter)
+regex4.parse("A(AB|B)*B")
+fsm5 = regex4.generate_fsm()
+fsm5.draw("regextest5.png")
