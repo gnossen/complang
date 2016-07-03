@@ -31,6 +31,25 @@ class Letter:
     def id(self):
         return self._id
 
+    @classmethod
+    def all(letter_class):
+        class LetterIterator:
+            def __init__(self):
+                self.i = 0
+
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self.i < letter_class.size():
+                    ret_letter = letter_class(self.i)
+                    self.i += 1
+                    return ret_letter
+                else:
+                    raise StopIteration()
+
+        return LetterIterator()
+
     def embed(self):
         head = [0.0] * self._id
         middle = [1.0]
