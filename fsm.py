@@ -1,6 +1,7 @@
 from regexast import *
 import pydot
 import copy
+import pdb
 
 class FSM(object):
     def __init__(self, letter_class):
@@ -97,6 +98,43 @@ class NFSM(FSM):
             if state is not self.dead_state:
                 self._connect_dead_state(state)
 
+    def is_impossible(self, state):
+        if state is self.dead_state:
+            return False
+
+        if state.terminal:
+            return False
+
+        for letters, subs_state in state.edges:
+            if subs_state is not self.dead_state and \
+                    not (len(letters) == 1 and tuple(letters)[0] == -1):
+                return False
+
+        return True
+
+    def remove_impossible(self, state):
+        # pdb.set_trace()
+        epsilon_edges = state.get_epsilon_edges()
+        for other_state in self.states:
+            if state is other_state:
+                continue
+
+            edges_to = other_state.get_edges_to(state)
+            if len(edges_to) != 0:
+                other_state.remove_edges_to(state)
+                new_edges = []
+                for incoming_letters, _ in edges_to:
+                    for _, destination_state in epsilon_edges:
+                        new_edges += [(incoming_letters, destination_state)]
+
+                other_state.add_edges(new_edges)
+
+    def remove_impossible_states(self):
+        for state in self.states:
+            if self.is_impossible(state):
+                print("Removing %d." % state._id)
+                self.remove_impossible(state)
+
     def from_regex(self, ast):
         self.initial_transitions = self._from_regex(ast)
         self.initial_state = FSMState([self.initial_transitions])
@@ -104,7 +142,8 @@ class NFSM(FSM):
         self.connect_dead_state()
         self.reverse_ids()
         self.clear_visited()
-
+        self.remove_impossible_states()
+        
     def _from_regex(self, ast, next_transition=None):
         if ast.type == RegexASTNode.CAT_EXPR:
             transition_B = self._from_regex(ast.right, next_transition=next_transition)
@@ -176,6 +215,25 @@ class FSMState(object):
     def visit(self):
         self.visited = True
 
+    def get_epsilon_edges(self):
+        epsilon_edges = []
+        for letters, next_state in self.edges:
+            if len(letters) == 1 and tuple(letters)[0] == -1:
+                epsilon_edges += [(letters, next_state)]
+
+        return epsilon_edges
+
+    def get_edges_to(self, state):
+        edges_to = []
+        for letters, next_state in self.edges:
+            if next_state is state:
+                edges_to += [(letters, next_state)]
+
+        return edges_to
+
+    def remove_edges_to(self, state):
+        self.edges = [edge for edge in self.edges if not edge[1] is state]
+
     def add_edges(self, edges):
         for edge, new_state in edges:
             if type(edge) is set:
@@ -225,33 +283,10 @@ class DFSM(FSM):
     def from_nfsm(self, nfsm):
         self.dead_state = FSMSuperState({nfsm.dead_state}, [])
         self.add_state(self.dead_state)
-        self.initial_state = FSMSuperState({self.find_initial_state(nfsm)}, [])
+        self.initial_state = FSMSuperState({nfsm.initial_state}, [])
         self.add_state(self.initial_state)
         self._from_nfsm(nfsm, self.initial_state)
         self.clear_visited()
-
-    def find_initial_state(self, nfsm):
-        def is_impossible_state(state):
-            for letters, subs_state in state.edges:
-                if subs_state is not nfsm.dead_state and \
-                        not (len(letters) == 1 and tuple(letters)[0] == -1):
-                    return False
-            return True
-
-        def next_state(state):
-            for letters, subs_state in state.edges:
-                if len(letters) == 1 and tuple(letters)[0] == -1:
-                    return subs_state
-            else:
-                return None
-
-        def _find_initial_state(state):
-            if not is_impossible_state(state):
-                return state
-            
-            return next_state(state)
-
-        return _find_initial_state(nfsm.initial_state)
 
     def get_by_ref_states(self, ref_states):
         for state in self.states:
