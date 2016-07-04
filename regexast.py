@@ -1,3 +1,6 @@
+from pydot import *
+import uuid
+
 class RegexASTNode:
     EPSILON     = 0
     LETTER      = 1
@@ -70,3 +73,35 @@ class RegexASTNode:
 
     def embed(self):
         return self.embed_from_str(str(self))
+
+    def draw(self, filename):
+        graph = pydot.Dot(graph_type='digraph')
+
+        def _draw(subtree):
+            label = "???"
+            if self.type == RegexASTNode.EPSILON:
+                label = "0"
+            elif self.type == RegexASTNode.LETTER:
+                label = str(self.value)
+            elif self.type == RegexASTNode.OR_EXPR:
+                label = "OR"
+            elif self.type == RegexASTNode.REP_EXPR:
+                label = "REP"
+            elif self.type == RegexASTNode.CAT_EXPR:
+                label = "CAT"
+                
+            node = pydot.Node(str(uuid.uuid1()), label=label) 
+            graph.add_node(node)
+            
+            if subtree.left is not None:
+                left = _draw(subtree.left)
+                graph.add_edge(pydot.Edge(node, left))
+
+            if subtree.right is not None:
+                right = _draw(subtree.right)
+                graph.add_edge(pydot.Edge(node, right))
+
+            return node
+
+        _draw(self)
+        graph.write_png(filename)

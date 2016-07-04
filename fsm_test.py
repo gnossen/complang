@@ -28,6 +28,7 @@ fsm4.from_nfsm(fsm3)
 fsm4.draw("regextest4.png")
 
 regex4 = Regex(L1Letter)
-regex4.parse("A(AB|B)*B")
+# regex4.parse("A(AB|B)*B(A|B|C|(ABC)*)*")
+regex4.parse("(A|B|C)*")
 fsm5 = regex4.generate_fsm()
 fsm5.draw("regextest5.png")

@@ -9,7 +9,6 @@ class FSM(object):
         self.states = []
         self.state_count = 1
 
-
     def get_state(self, id):
         for state in self.states:
             if state._id == id:
@@ -25,7 +24,6 @@ class FSM(object):
         state._id = self.state_count
         self.state_count += 1
         self.states += [state]
-
 
     def draw(self, filename, show_dead=False):
         graph = pydot.Dot(graph_type='digraph')
@@ -147,7 +145,12 @@ class NFSM(FSM):
             terminal = (next_transition is None)
             loop_state = FSMState([], terminal=terminal)
             loop_init_transition = self._from_regex(ast.left, next_transition=(-1, loop_state))
-            loop_state.add_edges([loop_init_transition, next_transition])
+
+            if next_transition is not None:
+                loop_state.add_edges([loop_init_transition, next_transition])
+            else:
+                loop_state.add_edges([loop_init_transition])
+
             self.add_state(loop_state)
             return (-1, loop_state)
         else:
@@ -198,12 +201,14 @@ class FSMState(object):
 
     def nd_transition(self, letter):
         new_states = set()
-        for edge_letter_set, state in self.edges:
-            if letter in edge_letter_set:
-                new_states = new_states | {state}
+        if not self.visited:
+            self.visit()
+            for edge_letter_set, state in self.edges:
+                if letter in edge_letter_set:
+                    new_states = new_states | {state}
 
-            if -1 in edge_letter_set:
-                new_states = new_states | state.nd_transition(letter)
+                if -1 in edge_letter_set:
+                    new_states = new_states | state.nd_transition(letter)
 
         return new_states
 
@@ -214,15 +219,39 @@ class DFSM(FSM):
     def from_regex(self, ast):
         nfsm = NFSM(self.letter_class)
         nfsm.from_regex(ast)
+        nfsm.draw("nfsm-record.png")
         self.from_nfsm(nfsm)
 
     def from_nfsm(self, nfsm):
         self.dead_state = FSMSuperState({nfsm.dead_state}, [])
         self.add_state(self.dead_state)
-        self.initial_state = FSMSuperState({nfsm.initial_state}, [])
+        self.initial_state = FSMSuperState({self.find_initial_state(nfsm)}, [])
         self.add_state(self.initial_state)
-        self._from_nfsm(self.initial_state)
+        self._from_nfsm(nfsm, self.initial_state)
         self.clear_visited()
+
+    def find_initial_state(self, nfsm):
+        def is_impossible_state(state):
+            for letters, subs_state in state.edges:
+                if subs_state is not nfsm.dead_state and \
+                        not (len(letters) == 1 and tuple(letters)[0] == -1):
+                    return False
+            return True
+
+        def next_state(state):
+            for letters, subs_state in state.edges:
+                if len(letters) == 1 and tuple(letters)[0] == -1:
+                    return subs_state
+            else:
+                return None
+
+        def _find_initial_state(state):
+            if not is_impossible_state(state):
+                return state
+            
+            return next_state(state)
+
+        return _find_initial_state(nfsm.initial_state)
 
     def get_by_ref_states(self, ref_states):
         for state in self.states:
@@ -239,20 +268,20 @@ class DFSM(FSM):
 
         return ref_state
 
-    def _from_nfsm(self, state):
+    def _from_nfsm(self, nfsm, state):
         if not state.visited:
             state.visit()
             paths = []
 
             for letter in self.letter_class.all():
-                this_letter_states = state.nd_transition(letter.id())
+                this_letter_states = state.nd_transition(letter.id(), nfsm)
                 next_state = self.make_state(this_letter_states)
 
                 paths += [(letter.id(), next_state)]
 
             state.add_edges(paths)
             for _, next_state in state.edges:
-                self._from_nfsm(next_state)
+                self._from_nfsm(nfsm, next_state)
 
 
 class FSMSuperState(FSMState):
@@ -278,9 +307,10 @@ class FSMSuperState(FSMState):
         for component_state in self.component_states:
             same = same and (component_state in other.component_states)
 
-    def nd_transition(self, letter_id):
+    def nd_transition(self, letter_id, nfsm):
         new_states = set()
         for component_state in self.component_states:
             new_states = new_states | component_state.nd_transition(letter_id)
+            nfsm.clear_visited()
 
         return new_states
