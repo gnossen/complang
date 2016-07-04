@@ -10,6 +10,15 @@ class FSM(object):
         self.states = []
         self.state_count = 1
 
+    def match(self, letter_list):
+        state = self.initial_state
+        for letter in letter_list:
+            state = state.transition(letter)
+            if state is None:
+                return False
+
+        return state.terminal
+
     def get_state(self, id):
         for state in self.states:
             if state._id == id:
@@ -132,7 +141,6 @@ class NFSM(FSM):
     def remove_impossible_states(self):
         for state in self.states:
             if self.is_impossible(state):
-                print("Removing %d." % state._id)
                 self.remove_impossible(state)
 
     def from_regex(self, ast):
@@ -244,9 +252,8 @@ class FSMState(object):
     # only call on deterministic nodes
     def transition(self, letter):
         for edge_letter_set, state in self.edges:
-            for edge_letter in edge_letter_set:
-                if edge_letter == letter:
-                    return state
+            if letter.id() in edge_letter_set:
+                return state
 
         return None
 
@@ -277,7 +284,6 @@ class DFSM(FSM):
     def from_regex(self, ast):
         nfsm = NFSM(self.letter_class)
         nfsm.from_regex(ast)
-        nfsm.draw("nfsm-record.png")
         self.from_nfsm(nfsm)
 
     def from_nfsm(self, nfsm):

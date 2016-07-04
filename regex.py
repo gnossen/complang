@@ -9,23 +9,28 @@ import numpy
 # there is a one-to-one correspondence between letters and characters
 # So, for example, diacritics will not work at the moment.
 
-
 class Regex:
     def __init__(self, letter_class):
         random.seed()
         self.letter_class = letter_class
         self.ast = None
+        self.fsm = None
+
+    def match_str(self, str):
+        letter_list = self.letter_class.parse(str)
+        return self.fsm.match(letter_list)
 
     def generate_fsm(self):
-        fsm = DFSM(self.letter_class)
-        fsm.from_regex(self.ast)
-        return fsm
+        self.fsm = DFSM(self.letter_class)
+        self.fsm.from_regex(self.ast)
+        return self.fsm
 
     def embed(self):
         return self.ast.embed()
 
     def generate_regex(self):
         self.ast = self._generate_regex(1)
+        self.generate_fsm()
 
     def _generate_regex(self, depth):
         # calculate mean length for this particular depth
@@ -145,6 +150,7 @@ class Regex:
             res += index_to_str(embedding_to_index(embedding))
 
         self.parse(res)
+        self.generate_fsm()
 
     def __repr__(self):
         if self.ast is None:
@@ -158,6 +164,7 @@ class Regex:
         self.in_stream = str
         self.in_stream_index = 0
         self.ast = self.parse_body()
+        self.generate_fsm()
 
     def parse_body(self):
         if self.check(None):

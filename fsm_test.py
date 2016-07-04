@@ -30,5 +30,11 @@ from lang1 import *
 regex4 = Regex(L1Letter)
 regex4.parse("A(AB|B)*B(A|B|C|(ABC)*)*")
 # regex4.parse("A(A|B|C)*")
-fsm5 = regex4.generate_fsm()
-fsm5.draw("regextest5.png")
+# fsm5 = regex4.generate_fsm()
+# fsm5.draw("regextest5.png")
+
+for i in range(10):
+    str = L1Letter.to_str(regex4.generate())
+    print(str)
+    print(regex4.match_str(str))
+    print("")

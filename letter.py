@@ -57,3 +57,29 @@ class Letter(object):
         middle = [1.0]
         tail = [0.0] * (self.size() - self._id - 1)
         return head + middle + tail
+
+    @classmethod
+    def parse(letter_class, str):
+        if len(str) == 0:
+            return []
+
+        def parse_one(prefix, suffix):
+            if letter_class.is_letter(prefix):
+                return (prefix, suffix)
+
+            if len(suffix) == 0:
+                raise Exception("Could not parse %s as %s." % (prefix, letter_class.__name__))
+
+            return parse_one(prefix + suffix[0], suffix[1:])
+
+        letter, remainder = parse_one("", str)
+        return [letter_class.from_str(letter)] + letter_class.parse(remainder)
+
+    @classmethod
+    def to_str(letter_class, letter_list):
+        s = ""
+        for letter in letter_list:
+            s += str(letter)
+
+        return s
+
