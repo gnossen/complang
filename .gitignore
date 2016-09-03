@@ -2,4 +2,6 @@
 *.png
 *.swp
 __pycache__/
-
+.cache/
+.coverage
+venv/

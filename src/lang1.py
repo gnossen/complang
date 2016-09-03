@@ -3,13 +3,19 @@ from letter import *
 class L1Letter(Letter):
     alphabet_size = 3
 
+    def __init__(self, id):
+        self._id = id
+
+    def id(self):
+        return self._id
+
     @staticmethod
     def size():
         return L1Letter.alphabet_size
 
     def __repr__(self):
         A = ord('A')
-        return str(chr(A + self._id))
+        return str(chr(A + self.id()))
 
     __str__ = __repr__
 
