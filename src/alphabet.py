@@ -13,15 +13,21 @@ def alphabet(letters):
     len_sorted_letters = preprocess_letters()
 
     class ListAlphabet(Letter):
-        def __init__(self, str=None, id=None):
-            if str is not None:
+        def __init__(self, str=None, id=None, letter=None):
+            if letter is not None:
+                if letter.__class__ is not self.__class__:
+                    raise Exception("Cannot construct %s with %s." %
+                                                    (self.__class__.__name__,
+                                                    letter.__class__.__name__))
+                self._id = letter.id()
+            elif str is not None:
                 if str not in letters:
                     raise Exception("'%s' is not a letter." % str)
                 self._id = letters.index(str)
             elif id is not None:
                 self._id = id
             else:
-                raise Exception("ListAlphabet requires either str or id argument.")
+                raise Exception("ListAlphabet requires str, letter, or id argument.")
 
         def id(self):
             return self._id
@@ -34,13 +40,6 @@ def alphabet(letters):
             return letters[self.id()]
 
         __str__ = __repr__
-
-        @staticmethod
-        def from_str(str):
-            try:
-                return ListAlphabet(id=letters.index(str))
-            except:
-                raise Exception("Invalid letter '%s'." % str)
 
         @staticmethod
         def is_letter(str):
@@ -56,9 +55,13 @@ def alphabet(letters):
                 s = str[:i]
                 rem = str[i:]
                 if s in letter_len_i:
-                    return (ListAlphabet.from_str(s), rem)
+                    return (ListAlphabet(str=s), rem)
 
             raise Exception("'%s' is not a letter." % str)
+
+        @classmethod
+        def is_subalphabet(cls, other_alphabet):
+            return other_alphabet is cls
 
     return ListAlphabet
 

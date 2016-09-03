@@ -99,3 +99,9 @@ def test_letter_string_set_different_alphabet():
     strX = alpha2(str="X")
     with pytest.raises(Exception):
         str1[1] = strX
+
+def test_instantiate_list_alphabet_different_alphabet():
+    X = alpha2(str="X")
+    with pytest.raises(Exception):
+        alpha(letter=X)
+    

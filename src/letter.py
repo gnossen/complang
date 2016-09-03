@@ -8,16 +8,12 @@ import abc
 #   exists
 
 class Letter(object):
-    @abc.abstractmethod
+    @staticmethod
     def size(self): # pragma: no cover
-        pass
+        raise Exception("Abstract method size.")
 
     @abc.abstractmethod
     def __repr__(self): # pragma: no cover
-        pass
-
-    @abc.abstractmethod
-    def from_str(str): # pragma: no cover
         pass
 
     @abc.abstractmethod
@@ -28,13 +24,15 @@ class Letter(object):
     def id(self): # pragma: no cover
         pass
 
-    # want a concept of subalphabets that works with equality
+    @classmethod
+    def is_subalphabet(cls, other_cls): # pragma: no cover
+        raise Exception("Abstract method is_subalphabet.")
+
     def __eq__(self, other):
-        return self.__class__ == other.__class__  and self.id() == other.id()
+        return self.__class__.is_subalphabet(other.__class__) and self.id() == other.id()
 
     def __ne__(self, other):
         return not (self == other)
-
 
     @classmethod
     def all(letter_class):
@@ -64,13 +62,12 @@ class Letter(object):
         return head + middle + tail
 
     # expected to return (letter, remain_str)
-    @classmethod
-    def parse_one(letter_cls, str): # pragma: no cover
+    @staticmethod
+    def parse_one(str): # pragma: no cover
         raise Exception("Abstract class method!")
 
-    # deprecated
     @classmethod
-    def parse(letter_class, str): # pragma: no cover
+    def parse(letter_class, str):
         if len(str) == 0:
             return []
 
