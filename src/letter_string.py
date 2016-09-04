@@ -28,7 +28,7 @@ class LetterString:
         return len(self._letter_list)
 
     def __getitem__(self, key):
-        if not isinstance(key, int):
+        if not isinstance(key, int) and not isinstance(key, slice):
             raise Exception("Index to LetterString must be int.")
 
         return self._letter_list[key] 

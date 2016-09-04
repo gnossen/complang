@@ -4,8 +4,8 @@ import copy
 import pdb
 
 class FSM(object):
-    def __init__(self, letter_class):
-        self.letter_class = letter_class
+    def __init__(self, letter_cls):
+        self.letter_cls = letter_cls
         self.initial_state = None
         self.states = []
         self.state_count = 1
@@ -58,7 +58,7 @@ class FSM(object):
                             if letter_id == -1:
                                 letter_str_list += ["0"]
                             else:
-                                letter_str_list += [str(self.letter_class(letter_id))]
+                                letter_str_list += [str(self.letter_cls(letter_id))]
 
                         edge_label = '"' +  ", ".join(letter_str_list) + '"'
                         graph_edge = pydot.Edge(node, new_node) 
@@ -74,8 +74,8 @@ class FSM(object):
         self.clear_visited()
 
 class NFSM(FSM):
-    def __init__(self, letter_class):
-        super(NFSM, self).__init__(letter_class)
+    def __init__(self, letter_cls):
+        super(NFSM, self).__init__(letter_cls)
         self.make_dead_state()
 
     def make_dead_state(self):
@@ -96,7 +96,7 @@ class NFSM(FSM):
 
     def _connect_dead_state(self, state):
         dead_transitions = set()
-        for letter in self.letter_class.all():
+        for letter in self.letter_cls.all():
             if letter.id() not in state.valid_transitions():
                 dead_transitions = dead_transitions | {letter.id()}
 
@@ -282,7 +282,7 @@ class FSMState(object):
 
 class DFSM(FSM):
     def from_regex(self, ast):
-        nfsm = NFSM(self.letter_class)
+        nfsm = NFSM(self.letter_cls)
         nfsm.from_regex(ast)
         self.from_nfsm(nfsm)
 
@@ -314,7 +314,7 @@ class DFSM(FSM):
             state.visit()
             paths = []
 
-            for letter in self.letter_class.all():
+            for letter in self.letter_cls.all():
                 this_letter_states = state.nd_transition(letter.id(), nfsm)
                 next_state = self.make_state(this_letter_states)
 

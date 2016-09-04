@@ -29,6 +29,12 @@ class Letter(object):
         raise Exception("Abstract method is_subalphabet.")
 
     def __eq__(self, other):
+        if not issubclass(other.__class__, Letter):
+            return False
+
+        if other.__class__ is not self.__class__ and other.__class__.is_subalphabet(self.__class__):
+            return other == self
+
         return self.__class__.is_subalphabet(other.__class__) and self.id() == other.id()
 
     def __ne__(self, other):
