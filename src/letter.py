@@ -29,13 +29,20 @@ class Letter(object):
         raise Exception("Abstract method is_subalphabet.")
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__eq__(self.__class__(str=other))
+
         if not issubclass(other.__class__, Letter):
             return False
+
+        if self.components() == other.components():
+            return self.id() == other.id()
 
         if other.__class__ is not self.__class__ and other.__class__.is_subalphabet(self.__class__):
             return other == self
 
-        return self.__class__.is_subalphabet(other.__class__) and self.id() == other.id()
+        return self.__class__.is_subalphabet(other.__class__) and \
+                self.id() == self.__class__(letter=other).id()
 
     def __ne__(self, other):
         return not (self == other)
@@ -68,9 +75,9 @@ class Letter(object):
         return head + middle + tail
 
     # expected to return (letter, remain_str)
-    @staticmethod
-    def parse_one(str): # pragma: no cover
-        raise Exception("Abstract class method!")
+    @classmethod
+    def parse_one(cls, str): # pragma: no cover
+        raise Exception("Abstract method parse_one.")
 
     @classmethod
     def parse(letter_class, str):
@@ -80,3 +87,6 @@ class Letter(object):
         letter, remainder = letter_class.parse_one(str)
         return [letter] + letter_class.parse(remainder)
 
+    @classmethod
+    def components(cls):
+        return [cls]

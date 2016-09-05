@@ -1,6 +1,28 @@
 from letter import *
+from functools import reduce
+import pdb
+
+def list_intersection(A, B):
+    return [a for a in A if a in B]
+
+def list_union(A, B):
+    return A + [b for b in B if b not in A]
+
+def is_list_subset(A, B):
+    return all([(a in B) for a in A])
 
 def alphabet_union(cls_A, cls_B):
+    if cls_A.is_subalphabet(cls_B):
+        return cls_A
+
+    if cls_B.is_subalphabet(cls_A):
+        return cls_B
+
+    components_A = cls_A.components()
+    components_B = cls_B.components()
+    if len(list_intersection(components_A, components_B)) != 0:
+        return reduce(alphabet_union, list_union(components_A, components_B))
+
     cls_A_letters = set([str(letter) for letter in cls_A.all()])
     cls_B_letters = set([str(letter) for letter in cls_B.all()])
     common_letters = cls_A_letters & cls_B_letters
@@ -10,7 +32,9 @@ def alphabet_union(cls_A, cls_B):
     class UnionLetter(Letter):
         def __init__(self, id=None, str=None, letter=None):
             if letter is not None:
-                if cls_A.is_subalphabet(letter.__class__):
+                if letter.__class__ is self.__class__:
+                    self._id = letter.id()
+                elif cls_A.is_subalphabet(letter.__class__):
                     cls_A_letter = cls_A(letter=letter)
                     self._id = cls_A_letter.id()
                 elif cls_B.is_subalphabet(letter.__class__):
@@ -64,8 +88,8 @@ def alphabet_union(cls_A, cls_B):
         def id(self):
             return self._id
 
-        @staticmethod
-        def parse_one(str):
+        @classmethod
+        def parse_one(cls, str):
             letter_A = None
             rem_A = None
             try:
@@ -82,20 +106,27 @@ def alphabet_union(cls_A, cls_B):
             
             if letter_A is not None and letter_B is not None:
                 if rem_A < rem_B:
-                    return (letter_A, rem_A)
+                    return (cls(letter=letter_A), rem_A)
                 else:
-                    return (letter_B, rem_B)
+                    return (cls(letter=letter_B), rem_B)
             elif letter_A is not None:
-                return (letter_A, rem_A)
+                return (cls(letter=letter_A), rem_A)
             elif letter_B is not None:
-                return (letter_B, rem_B)
+                return (cls(letter=letter_B), rem_B)
             else:
                 raise Exception("Cannot parse %s as either %s or %s" %
                                         (str, cls_A.__name__, cls_B.__name__))
-            
+
+        @classmethod
+        def components(cls):
+            return list_union(cls_A.components(), cls_B.components())
 
         @classmethod
         def is_subalphabet(cls, other_alphabet):
-            return cls_A.is_subalphabet(other_alphabet) or cls_B.is_subalphabet(other_alphabet)
+            my_components = cls.components()
+            their_components = other_alphabet.components()
+            if is_list_subset(their_components, my_components):
+                return True
+            return any([component.is_subalphabet(other_alphabet) for component in my_components])
         
     return UnionLetter

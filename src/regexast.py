@@ -1,5 +1,10 @@
 from pydot import *
+from letter_string import *
+from alphabet_union import *
+from alphabet import *
 import uuid
+
+RegexAlphabet = alphabet(["(", ")", "*", "|", "0"])
 
 class RegexASTNode:
     EPSILON     = 0
@@ -8,73 +13,53 @@ class RegexASTNode:
     REP_EXPR    = 3
     CAT_EXPR    = 4
 
-    NUM_RESERVED_SYMBOLS = 5
-
-    EPSILON_VECINDEX    = 0
-    OR_VECINDEX         = 1
-    LPAREN_VECINDEX     = 2
-    RPAREN_VECINDEX     = 3
-    STAR_VECINDEX       = 4
-
-    def __init__(self, _type, letter_class, left=None, right=None, value=None):
+    def __init__(self, _type, letter_cls, left=None, right=None, value=None):
         self.type = _type
         self.left = left
         self.right = right
         self.value = value
-        self.letter_class = letter_class
+        self._letter_cls = alphabet_union(letter_cls, RegexAlphabet)
+
+    def _parenthesize(self, expr):
+        buf = LetterString(letter_cls=self._letter_cls)
+        buf += "("
+        buf += expr
+        buf += ")"
+        return buf
+
+    def _parenthesize_expr(self, expr):
+        if len(expr) == 1:
+            return expr
+
+        return self._parenthesize(expr)
+
+    def to_letter_string(self):
+        if self.type == RegexASTNode.EPSILON:
+            return LetterString(letter_cls=self._letter_cls, str="0")
+        elif self.type == RegexASTNode.OR_EXPR:
+            return self._parenthesize_expr(self.left.to_letter_string()) + "|" + \
+                    self._parenthesize_expr(self.right.to_letter_string())
+        elif self.type == RegexASTNode.REP_EXPR:
+            return self._parenthesize_expr(self.left.to_letter_string()) + "*"
+        elif self.type == RegexASTNode.CAT_EXPR:
+            def or_parenthesize(subtree):
+                if subtree.type == RegexASTNode.OR_EXPR:
+                    return self._parenthesize(subtree.to_letter_string())
+                else:
+                    return subtree.to_letter_string()
+            return or_parenthesize(self.left) + or_parenthesize(self.right)
+        elif self.type == RegexASTNode.LETTER:
+            return LetterString(letter_list=[self._letter_cls(letter=self.value)])
 
     def __repr__(self):
-        if self.type == RegexASTNode.EPSILON:
-            return "0"
-        elif self.type == RegexASTNode.LETTER:
-            return str(self.value)
-        elif self.type == RegexASTNode.OR_EXPR:
-            return str(self.left) + "|" + str(self.right)
-        elif self.type == RegexASTNode.REP_EXPR:
-            if self.left.type == RegexASTNode.CAT_EXPR or self.left.type == RegexASTNode.OR_EXPR:
-                return "(" + str(self.left) + ")*"
-            else:
-                return str(self.left) + "*"
-        elif self.type == RegexASTNode.CAT_EXPR:
-            def parenthesize(subtree):
-                if subtree.type == RegexASTNode.OR_EXPR:
-                    return "(" + str(subtree) + ")"
-                else:
-                    return str(subtree)
+        return str(self.to_letter_string())
 
-            return parenthesize(self.left) + parenthesize(self.right)
-        else:
-            raise Exception("Cannot print AST node of type '%d'." % self.type)
-
-    def embed_by_index(self, index):
-        num_elems = RegexASTNode.NUM_RESERVED_SYMBOLS + self.letter_class.size()
-        head = [0.0] * index
-        middle = [1.0]
-        tail = [0.0] * (num_elems - index - 1) 
-
-        return head + middle + tail
-
-    def embed_single(self, char):
-        if char == "0":
-            return self.embed_by_index(RegexASTNode.EPSILON_VECINDEX)
-        elif char == "|":
-            return self.embed_by_index(RegexASTNode.OR_VECINDEX)
-        elif char == "(":
-            return self.embed_by_index(RegexASTNode.LPAREN_VECINDEX)
-        elif char == ")":
-            return self.embed_by_index(RegexASTNode.RPAREN_VECINDEX)
-        elif char == "*":
-            return self.embed_by_index(RegexASTNode.STAR_VECINDEX)
-        else:
-            return self.embed_by_index(self.letter_class.from_str(char).id() + RegexASTNode.NUM_RESERVED_SYMBOLS)
-
-    def embed_from_str(self, str):
-        return [ self.embed_single(char) for char in str]
+    __str__ = __repr__
 
     def embed(self):
-        return self.embed_from_str(str(self))
+        return self.to_letter_string().embed()
 
-    def draw(self, filename):
+    def draw(self, filename): # pragma: no cover
         graph = pydot.Dot(graph_type='digraph')
 
         def _draw(subtree):

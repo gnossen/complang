@@ -45,8 +45,8 @@ def alphabet(letters):
         def is_letter(str):
             return str in letters
 
-        @staticmethod
-        def parse_one(str):
+        @classmethod
+        def parse_one(cls, str):
             for i, letter_len_i in reversed(list(enumerate(len_sorted_letters))):
                 i = i + 1
                 if i > len(str):

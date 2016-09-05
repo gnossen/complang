@@ -2,8 +2,7 @@ from letter import *
 from letter_string import *
 from regexast import *
 from alphabet import *
-
-RegexAlphabet = alphabet(["(", ")", "*", "|", "0"])
+import pdb
 
 class RegexParser:
     def __init__(self, letter_str):
