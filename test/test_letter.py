@@ -3,6 +3,7 @@ from letter_string import *
 from alphabet import *
 from alphabet_union import *
 import pytest
+import pdb
 
 alpha = alphabet(["A", "B", "C"])
 alpha2 = alphabet(["X", "Y", "Z"])
@@ -115,6 +116,27 @@ def test_letter_string_index_not_int():
 def test_letter_string_empty_list_no_letter_class():
     with pytest.raises(Exception):
         LetterString(letter_list="")
+
+def test_to_letter():
+    alpha3 = alphabet_union(alpha, alpha2)
+    A = alpha(str="A")
+    A_ = to_letter(A, alpha3)
+    assert A_ == A
+
+    with pytest.raises(Exception):
+        to_letter(5, alpha)
+
+def test_letter_string_not_equal():
+    s = LetterString(letter_cls=alpha, str="ABB")
+    assert s != 5
+
+def test_letter_string_iteration():
+    s = LetterString(letter_cls=alpha, str="ABC")
+    letter_list = []
+    for letter in s:
+        letter_list.append(str(letter))
+
+    assert letter_list == ["A", "B", "C"]
 
 def test_letter_setitem():
     str1[2] = alpha(str="B")

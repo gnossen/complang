@@ -1,5 +1,31 @@
 from letter import Letter
 
+def to_letter(obj, letter_cls):
+    if isinstance(obj, str):
+        return letter_cls(str=obj)
+
+    if not issubclass(obj.__class__, Letter):
+        raise Exception("%s is not an instance of Letter" % obj)
+
+    if letter_cls is obj.__class__:
+        return obj
+
+    LetterString._check_compatible_classes(letter_cls, obj.__class__)
+    return obj
+
+def to_letter_string(obj, letter_cls):
+    if isinstance(obj, str):
+        return LetterString(letter_cls=letter_cls, str=obj)
+
+    if issubclass(obj.__class__, Letter):
+        return LetterString(letter_cls=letter_cls, letter_list=[to_letter(obj, letter_cls)])
+
+    if not isinstance(obj, LetterString):
+        raise Exception("'%s' not an instance of LetterString." % str(obj))
+
+    LetterString._check_compatible_classes(letter_cls, obj._letter_cls)
+    return obj
+
 class LetterString:
     def __init__(self, letter_cls=None, str=None, letter_list=None):
         self._letter_cls = letter_cls
@@ -41,10 +67,11 @@ class LetterString:
     __str__ = __repr__
 
     def __eq__(self, other):
-        if isinstance(other, str):
-            return self.__eq__(LetterString(letter_cls=self._letter_cls, str=other))
-
-        return all([this_letter == that_letter for (this_letter, that_letter) in zip(self._letter_list, other._letter_list)])
+        try:
+            other_ = to_letter_string(other, self._letter_cls)
+        except:
+            return False
+        return all([this_letter == that_letter for (this_letter, that_letter) in zip(self._letter_list, other_._letter_list)])
 
     def __ne__(self, other):
         return not (self == other)
@@ -62,41 +89,25 @@ class LetterString:
         if not isinstance(key, int):
             raise Exception("Index to LetterString must be int.")
 
-        if isinstance(value, str):
-            self.__setitem__(key, self._letter_cls(str=value))
-            return
-        
-        LetterString._check_compatible_classes(self._letter_cls, value.__class__)
-        self._letter_list[key] = value
+        value_ = to_letter(value, self._letter_cls)
+        LetterString._check_compatible_classes(self._letter_cls, value_.__class__)
+        self._letter_list[key] = value_
 
     def append(self, value):
-        if isinstance(value, str):
-            self.append(self._letter_cls(str=value))
-            return
-
-        LetterString._check_compatible_classes(self._letter_cls, value.__class__)
-        self._letter_list.append(value)
-        self._normalize_class([self._letter_cls, value.__class__])
+        value_ = to_letter(value, self._letter_cls)
+        self._letter_list.append(value_)
+        self._normalize_class([self._letter_cls, value_.__class__])
 
     def __add__(self, other):
-        if not isinstance(other, str) and \
-                not isinstance(other, LetterString) and \
-                not isinstance(other, Letter):
-           raise Exception("Cannot concatenate type '%s' with LetterClass." % type(other))
-
-        if isinstance(other, str):
-            return self.__add__(LetterString(letter_cls=self._letter_cls, str=other))
-
+        other_ = to_letter_string(other, self._letter_cls)
         new_str = LetterString(letter_cls=self._letter_cls, letter_list=self._letter_list)
-
-        if issubclass(other.__class__, Letter):
-            new_str.append(other)
-            return new_str
-
-        LetterString._check_compatible_classes(self._letter_cls, other._letter_cls)
-        new_str._letter_list = self._letter_list + other._letter_list
-        new_str._normalize_class([self._letter_cls, other._letter_cls])
+        new_str._letter_list = self._letter_list + other_._letter_list
+        new_str._normalize_class([self._letter_cls, other_._letter_cls])
         return new_str
+
+    def __iter__(self):
+        for letter in self._letter_list:
+            yield letter
 
     def embed(self):
         return [letter.embed() for letter in self._letter_list]

@@ -1,6 +1,6 @@
 from letter import *
 from regexast import *
-from fsm import *
+from dfsm import DFSM
 import random
 import math
 import numpy
