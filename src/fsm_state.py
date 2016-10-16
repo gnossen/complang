@@ -1,4 +1,4 @@
-from edge import Edge
+from edge import Edge, EpsilonAlphabet
 
 class FSMState:
     def __init__(self, edges, id=None, terminal=False):
@@ -19,13 +19,13 @@ class FSMState:
         self.visited = True
 
     def get_epsilon_edges(self):
-        return [edge in self.edges if edge.is_epsilon_edge()]
+        return [edge for edge in self.edges if edge.is_epsilon()]
 
     def get_edges_to(self, state):
-        return [edge in self.edges if edge.next_state is state]
+        return [edge for edge in self.edges if edge.next_state is state]
 
     def remove_edges_to(self, state):
-        self.edges = [edge for edge in self.edges if not edge.next_state is not state]
+        self.edges = [edge for edge in self.edges if edge.next_state is not state]
 
     def add_edges(self, edges):
         self.edges += edges
@@ -40,8 +40,8 @@ class FSMState:
 
     def valid_transitions(self):
         letters = set()
-        for transition_letters, next_state in self.edges:
-            letters = letters | transition_letters
+        for edge in self.edges:
+            letters = letters | edge.letters
 
         return letters
 
@@ -51,9 +51,9 @@ class FSMState:
             self.visit()
             for edge in self.edges:
                 if letter in edge.letters:
-                    new_states = new_states | set(edge.next_state)
+                    new_states = new_states | {edge.next_state}
 
-                if -1 in edge.letters:
+                if EpsilonAlphabet(str="ε") in edge.letters:
                     new_states = new_states | edge.next_state.nd_transition(letter)
 
         return new_states
